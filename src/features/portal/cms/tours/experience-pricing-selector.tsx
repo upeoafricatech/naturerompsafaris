@@ -23,6 +23,7 @@ import type { PricingTier } from './schema';
 import {
   createDefaultLegacyPricingTier,
   createDefaultMountainPricingTier,
+  createGroupJoiningPricingSeason,
   createLegacyPricingSeason,
   createMountainPricingSeason,
   createSouthAfricaPricingSeason,
@@ -30,8 +31,17 @@ import {
   mapLegacyPricingTiersToPublic,
   normalizeMountainPricingTier,
   paxBandsForSeason,
-  seasonUsesSouthAfricaBands
+  seasonUsesGroupJoiningBand,
+  seasonUsesSouthAfricaBands,
+  tierUsesGroupJoining
 } from './legacy-pricing';
+import {
+  applyPriceTablePreset,
+  detectPriceTablePreset,
+  PRICE_TABLE_PRESETS,
+  TOUR_CATALOG_GROUPS,
+  tourCatalogGroupLabel
+} from './catalog';
 import {
   getExperiencePricingPreview,
   getExperiencePricingTablesForWizard,
@@ -39,6 +49,7 @@ import {
 } from './service';
 
 type ExperiencePricingSelectorProps = {
+  catalogGroup?: string;
   experienceIds: string[];
   experienceOptions: RelationOption[];
   priceFrom: string;
@@ -63,6 +74,7 @@ function tierBadgeVariant(tier: ReturnType<typeof mapExperienceKeyToTourTier>) {
 }
 
 export function ExperiencePricingSelector({
+  catalogGroup = '',
   experienceIds,
   experienceOptions,
   priceFrom,
@@ -156,8 +168,8 @@ export function ExperiencePricingSelector({
   if (!experienceIds.length) {
     return (
       <div className='rounded-lg border border-dashed p-6 text-sm text-muted-foreground'>
-        Link at least one experience on the Links step — pricing tables come from that experience
-        and update automatically when you edit the experience.
+        Link at least one experience on the Links step. Pricing tables come from that experience and
+        update automatically when you edit the experience.
       </div>
     );
   }
@@ -296,7 +308,11 @@ export function ExperiencePricingSelector({
 
       {showLegacy ? (
         <>
-          <LegacyPricingInput value={pricingTiers} onChange={onPricingTiersChange} />
+          <LegacyPricingInput
+            catalogGroup={catalogGroup}
+            value={pricingTiers}
+            onChange={onPricingTiersChange}
+          />
           {pricingTiers.length ? (
             <div className='grid gap-2'>
               <Label>Legacy preview</Label>
@@ -312,9 +328,11 @@ export function ExperiencePricingSelector({
 const PRICING_TIER_OPTIONS = LEGACY_PRICING_TIER_OPTIONS;
 
 function LegacyPricingInput({
+  catalogGroup = '',
   value,
   onChange
 }: {
+  catalogGroup?: string;
   value: PricingTier[];
   onChange: (next: PricingTier[]) => void;
 }) {
@@ -356,14 +374,16 @@ function LegacyPricingInput({
   function addSeason(tierIndex: number) {
     const existing = tiers[tierIndex].seasons[0];
     const nextSeason = existing
-      ? seasonUsesSouthAfricaBands(existing.cells)
-        ? createSouthAfricaPricingSeason('')
-        : {
-            label: '',
-            dateStart: '',
-            dateEnd: '',
-            cells: existing.cells.map((cell) => ({ groupBand: cell.groupBand, price: '' }))
-          }
+      ? seasonUsesGroupJoiningBand(existing.cells)
+        ? createGroupJoiningPricingSeason('')
+        : seasonUsesSouthAfricaBands(existing.cells)
+          ? createSouthAfricaPricingSeason('')
+          : {
+              label: '',
+              dateStart: '',
+              dateEnd: '',
+              cells: existing.cells.map((cell) => ({ groupBand: cell.groupBand, price: '' }))
+            }
       : createLegacyPricingSeason('');
 
     updateTier(tierIndex, {
@@ -374,16 +394,25 @@ function LegacyPricingInput({
   return (
     <div className='grid gap-4'>
       <div className='rounded-lg border bg-muted/25 p-4'>
-        <h3 className='text-sm font-semibold'>Legacy trip pricing table</h3>
+        <h3 className='text-sm font-semibold'>Trip pricing table</h3>
         <p className='mt-1 text-sm text-muted-foreground'>
-          Enter per-person prices by season and group size. Empty cells show as &ldquo;On
-          request&rdquo; on the public page. The enquiry column is filled in automatically there.
+          {catalogGroup
+            ? `This safari is filed under ${tourCatalogGroupLabel(catalogGroup)}. `
+            : ''}
+          Choose the matching price table below. Changing the table replaces the season rows and
+          clears prices that do not fit the new columns. Empty prices show as &ldquo;On
+          request&rdquo; on the public page.
         </p>
       </div>
 
       {tiers.map((tier, tierIndex) => {
+        const groupJoining = tierUsesGroupJoining(tier);
         const bandHeaders = paxBandsForSeason(tier.seasons[0]?.cells ?? []);
-        const tableMinWidth = bandHeaders.length <= 3 ? 'min-w-[640px]' : 'min-w-[860px]';
+        const tableMinWidth = groupJoining
+          ? 'min-w-[520px]'
+          : bandHeaders.length <= 3
+            ? 'min-w-[640px]'
+            : 'min-w-[860px]';
 
         return (
           <div
@@ -420,10 +449,48 @@ function LegacyPricingInput({
             </div>
 
             <div className='grid gap-4 p-4'>
+              <div className='grid gap-1.5'>
+                <Label htmlFor={`price-table-${tierIndex}`}>Price table</Label>
+                <select
+                  id={`price-table-${tierIndex}`}
+                  className='border-input bg-background h-9 rounded-md border px-3 text-sm'
+                  value={detectPriceTablePreset(tier, catalogGroup)}
+                  onChange={(event) => {
+                    const presetId = event.target.value;
+                    if (!presetId) return;
+                    updateTier(tierIndex, applyPriceTablePreset(tier, presetId));
+                  }}
+                >
+                  <option value=''>
+                    {detectPriceTablePreset(tier, catalogGroup)
+                      ? 'Choose a price table'
+                      : 'Keep current columns'}
+                  </option>
+                  {TOUR_CATALOG_GROUPS.map((group) => {
+                    const presets = PRICE_TABLE_PRESETS.filter(
+                      (preset) => preset.groupId === group.id
+                    );
+                    if (!presets.length) return null;
+                    return (
+                      <optgroup key={group.id} label={group.label}>
+                        {presets.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+              </div>
               <Textarea
                 value={tier.blurb}
                 onChange={(event) => updateTier(tierIndex, { blurb: event.target.value })}
-                placeholder='Short tier description…'
+                placeholder={
+                  groupJoining
+                    ? 'Short note, such as per person sharing on a group departure…'
+                    : 'Short tier description…'
+                }
                 rows={2}
               />
 
@@ -468,7 +535,11 @@ function LegacyPricingInput({
                                 }
                                 placeholder='Price'
                               />
-                              <span className='text-muted-foreground text-[10px]'>per person</span>
+                              {groupJoining ? null : (
+                                <span className='text-muted-foreground text-[10px]'>
+                                  per person
+                                </span>
+                              )}
                             </div>
                           </td>
                         ))}

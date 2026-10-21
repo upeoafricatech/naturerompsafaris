@@ -39,17 +39,46 @@ import {
   restoreTours,
   trashTours
 } from './service';
+import { TOUR_CATALOG_GROUPS, tourCatalogGroupLabel } from '../catalog';
 import type { TourListItem, TourListStatus, TourQuickEditInput } from './types';
 
-const COLUMN_COUNT = 5;
+const COLUMN_COUNT = 8;
 
 function confirmDelete(ids: string[], message: string): boolean {
   if (typeof window !== 'undefined' && !window.confirm(message)) return false;
   return ids.length > 0;
 }
 
+function formatPublished(iso: string | null): string {
+  if (!iso) return 'Not published';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'Not published';
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function SeoScoreBadge({ score }: { score: number }) {
+  const tone =
+    score >= 80
+      ? { dot: 'bg-emerald-500', text: 'text-emerald-700' }
+      : score >= 50
+        ? { dot: 'bg-amber-500', text: 'text-amber-700' }
+        : { dot: 'bg-red-500', text: 'text-red-700' };
+
+  return (
+    <span className='inline-flex items-center gap-1.5'>
+      <span className={cn('size-2 shrink-0 rounded-full', tone.dot)} aria-hidden />
+      <span className={cn('text-sm font-medium tabular-nums', tone.text)}>{score}%</span>
+    </span>
+  );
+}
+
+function formatPrice(value: number | null): string {
+  if (value == null) return 'Not set';
+  return `USD ${value.toLocaleString('en-US')}`;
+}
+
 function formatDuration(days: number | null, nights: number | null): string {
-  if (days == null && nights == null) return '—';
+  if (days == null && nights == null) return '-';
   if (days != null && nights != null) return `${days}D / ${nights}N`;
   if (days != null) return `${days}D`;
   return `${nights}N`;
@@ -68,16 +97,17 @@ const listParsers = {
   ),
   s: parseAsString.withDefault(''),
   m: parseAsString.withDefault(''),
+  g: parseAsString.withDefault(''),
   paged: parseAsInteger.withDefault(1)
 };
 
 export function ToursList() {
   const queryClient = useQueryClient();
   const [params, setParams] = useQueryStates(listParsers, { shallow: true });
-  const { status, s: search, m: month, paged: page } = params;
+  const { status, s: search, m: month, g: catalog, paged: page } = params;
 
   const { data, isFetching, isPending } = useQuery({
-    ...toursListQueryOptions({ status, search, month, page }),
+    ...toursListQueryOptions({ status, search, month, catalog, page }),
     placeholderData: keepPreviousData
   });
   const showSkeleton = isPending || (isFetching && !data);
@@ -88,7 +118,7 @@ export function ToursList() {
   const pageSize = data?.pageSize ?? 20;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const isTrashView = status === 'trash';
-  const hasFilters = Boolean(search || month);
+  const hasFilters = Boolean(search || month || catalog);
   const emptyCopy = cmsListEmptyCopy({
     createHref: '/portal/tours/new',
     createLabel: 'Add safari tour',
@@ -101,7 +131,7 @@ export function ToursList() {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
 
-  const resetKey = `${status}|${search}|${month}|${page}`;
+  const resetKey = `${status}|${search}|${month}|${catalog}|${page}`;
   const [selected, setSelected] = React.useState<string[]>([]);
   const [quickEditId, setQuickEditId] = React.useState<string | null>(null);
   const [bulkAction, setBulkAction] = React.useState('');
@@ -286,6 +316,23 @@ export function ToursList() {
           ) : null}
 
           <Select
+            value={catalog || 'all'}
+            onValueChange={(value) => updateFilters({ g: value === 'all' ? '' : value })}
+          >
+            <SelectTrigger size='sm' className='w-64' aria-label='Safari collection'>
+              <SelectValue placeholder='Kenya, Tanzania, and more' />
+            </SelectTrigger>
+            <SelectContent className={CMS_SURFACE}>
+              <SelectItem value='all'>All safari collections</SelectItem>
+              {TOUR_CATALOG_GROUPS.map((group) => (
+                <SelectItem key={group.id} value={group.id}>
+                  {group.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
             value={month || 'all'}
             onValueChange={(value) => updateFilters({ m: value === 'all' ? '' : value })}
           >
@@ -322,7 +369,7 @@ export function ToursList() {
         <p className='text-muted-foreground text-sm'>
           {total === 0
             ? '0 items'
-            : `Showing ${rangeStart}–${rangeEnd} of ${total} ${total === 1 ? 'tour' : 'tours'}`}
+            : `Showing ${rangeStart}-${rangeEnd} of ${total} ${total === 1 ? 'tour' : 'tours'}`}
         </p>
       </div>
 
@@ -338,9 +385,12 @@ export function ToursList() {
                 />
               </TableHead>
               <TableHead>Tour</TableHead>
-              <TableHead className='w-32'>Status</TableHead>
-              <TableHead className='w-28'>Duration</TableHead>
-              <TableHead className='max-w-[12rem]'>Slug</TableHead>
+              <TableHead className='w-44'>Collection</TableHead>
+              <TableHead className='w-28'>Status</TableHead>
+              <TableHead className='w-24'>Duration</TableHead>
+              <TableHead className='w-36'>Published</TableHead>
+              <TableHead className='w-24'>SEO</TableHead>
+              <TableHead className='w-28'>From</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -517,13 +567,20 @@ function TourRow({
           )}
         </div>
       </TableCell>
+      <TableCell className='text-sm'>
+        {item.catalogGroup ? tourCatalogGroupLabel(item.catalogGroup) : 'Not set'}
+      </TableCell>
       <TableCell>
         <StatusPill status={item.status} />
       </TableCell>
       <TableCell className='text-sm'>{formatDuration(item.days, item.nights)}</TableCell>
-      <TableCell className='text-muted-foreground max-w-[12rem] truncate text-sm' title={item.slug}>
-        {item.slug}
+      <TableCell className='text-muted-foreground text-sm'>
+        {formatPublished(item.publishedAt)}
       </TableCell>
+      <TableCell>
+        <SeoScoreBadge score={item.seoScore} />
+      </TableCell>
+      <TableCell className='text-sm tabular-nums'>{formatPrice(item.priceFrom)}</TableCell>
     </TableRow>
   );
 }

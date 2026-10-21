@@ -16,16 +16,24 @@ export const SOUTH_AFRICA_PAX_BANDS = ['1 PAX', '2 - 3 PAX', '4 PAX & ABOVE'] as
 /** Excursions / day trips: one pax-rate row, no seasonal matrix. */
 export const DAY_TRIP_SEASON_LABEL = 'Day trip';
 
+/** Group joining departures: one shared rate, not a private group-size matrix. */
+export const GROUP_JOINING_BAND = 'Per person sharing';
+
+export const DEFAULT_GROUP_JOINING_SEASONS = [
+  'Low Season (Jan - June)',
+  'High Season (July - Dec)'
+] as const;
+
 export const MOUNTAIN_ACCOMMODATION_BANDS = ['Camping', 'Sleeping at hut'] as const;
 
 export const DEFAULT_LEGACY_SEASONS = [
   '1st JAN - 31ST MARCH',
-  '1st April – 31ST MAY',
-  '1ST JUN – 30TH JUNE',
-  '1ST JULY – 31ST AUG',
-  '1ST SEPT – 31ST OCT',
-  '1ST NOV – 22ND DEC',
-  '23RD – 2ND JAN 2027'
+  '1st April - 31ST MAY',
+  '1ST JUN - 30TH JUNE',
+  '1ST JULY - 31ST AUG',
+  '1ST SEPT - 31ST OCT',
+  '1ST NOV - 22ND DEC',
+  '23RD - 2ND JAN 2027'
 ] as const;
 
 export const LEGACY_PRICING_TIER_OPTIONS: Array<{
@@ -65,12 +73,34 @@ export function seasonUsesSouthAfricaBands(cells: Array<{ groupBand: string }>):
   return bands.every((band) => saSet.has(band));
 }
 
+export function isGroupJoiningBand(value: string): boolean {
+  return value.trim().toLowerCase() === GROUP_JOINING_BAND.toLowerCase();
+}
+
+export function seasonUsesGroupJoiningBand(cells: Array<{ groupBand: string }>): boolean {
+  const bands = seasonCellBands(cells);
+  return bands.length > 0 && bands.every((band) => isGroupJoiningBand(band));
+}
+
+export function tierUsesGroupJoining(tier: PricingTier): boolean {
+  return (
+    tier.seasons.length > 0 &&
+    tier.seasons.every((season) => seasonUsesGroupJoiningBand(season.cells))
+  );
+}
+
 export function isDayTripSeasonLabel(label: string): boolean {
   return label.trim().toLowerCase() === DAY_TRIP_SEASON_LABEL.toLowerCase();
 }
 
 export function isDayTripPricingTierPublic(tier: PublicTourPricingTier): boolean {
   return tier.seasons.length === 1 && isDayTripSeasonLabel(tier.seasons[0]?.label ?? '');
+}
+
+export function isGroupJoiningPricingTierPublic(tier: PublicTourPricingTier): boolean {
+  const seasons = tier.seasons.filter((season) => season.label.trim() || season.cells.length);
+  if (!seasons.length) return false;
+  return seasons.every((season) => seasonUsesGroupJoiningBand(season.cells));
 }
 
 export function createDayTripPricingSeason(): PricingTier['seasons'][number] {
@@ -133,9 +163,21 @@ function mapBandPrices(
   });
 }
 
+function groupJoiningPrice(
+  cells: Array<{ groupBand: string; price?: number | null | string }>
+): number | null | undefined {
+  const match = cells.find((cell) => isGroupJoiningBand(cell.groupBand));
+  if (!match) return undefined;
+  return typeof match.price === 'string' ? toNumberOrNull(match.price) : match.price;
+}
+
 export function mapPublicSeasonCells(
   cells: Array<{ groupBand: string; price?: number | null | string }>
 ): PublicTourPricingCell[] {
+  if (seasonUsesGroupJoiningBand(cells)) {
+    return [{ groupBand: GROUP_JOINING_BAND, price: groupJoiningPrice(cells) ?? undefined }];
+  }
+
   if (seasonUsesMountainBands(cells)) {
     return mapBandPrices(cells, MOUNTAIN_ACCOMMODATION_BANDS);
   }
@@ -144,7 +186,16 @@ export function mapPublicSeasonCells(
     return mapBandPrices(cells, SOUTH_AFRICA_PAX_BANDS);
   }
 
-  return mapBandPrices(cells, LEGACY_PAX_BANDS);
+  const bands = seasonCellBands(cells);
+  const legacySet = new Set<string>(LEGACY_PAX_BANDS);
+  if (bands.length > 0 && bands.every((band) => legacySet.has(band))) {
+    return mapBandPrices(cells, LEGACY_PAX_BANDS);
+  }
+
+  return cells.map((cell) => {
+    const price = typeof cell.price === 'string' ? toNumberOrNull(cell.price) : cell.price;
+    return { groupBand: cell.groupBand, price: price ?? undefined };
+  });
 }
 
 export function normalizeLegacySeasonCells(
@@ -152,6 +203,11 @@ export function normalizeLegacySeasonCells(
 ): PricingTier['seasons'][number]['cells'] {
   if (!cells.length) {
     return LEGACY_PAX_BANDS.map((groupBand) => ({ groupBand, price: '' }));
+  }
+
+  if (seasonUsesGroupJoiningBand(cells)) {
+    const match = cells.find((cell) => isGroupJoiningBand(cell.groupBand));
+    return [{ groupBand: GROUP_JOINING_BAND, price: match?.price ?? '' }];
   }
 
   if (seasonUsesMountainBands(cells)) {
@@ -190,6 +246,7 @@ export function normalizeLegacySeasonCells(
 
 /** Column headers for a season — follows stored bands (Kenya / SA / custom). */
 export function paxBandsForSeason(cells: Array<{ groupBand: string }>): readonly string[] {
+  if (seasonUsesGroupJoiningBand(cells)) return [GROUP_JOINING_BAND];
   if (seasonUsesMountainBands(cells)) return MOUNTAIN_ACCOMMODATION_BANDS;
   if (seasonUsesSouthAfricaBands(cells)) return SOUTH_AFRICA_PAX_BANDS;
 
@@ -241,6 +298,65 @@ export function mapLegacyPricingTiersToPublic(
           })
         }))
     }));
+}
+
+export function createGroupJoiningPricingSeason(label: string): PricingTier['seasons'][number] {
+  return {
+    label,
+    dateStart: '',
+    dateEnd: '',
+    cells: [{ groupBand: GROUP_JOINING_BAND, price: '' }]
+  };
+}
+
+export function createDefaultGroupJoiningPricingTier(
+  tier: PricingTier['tier'] = 'budget'
+): PricingTier {
+  return {
+    tier,
+    label: '',
+    blurb: 'Per person sharing on a group joining departure.',
+    notes: '',
+    currency: 'USD',
+    seasons: DEFAULT_GROUP_JOINING_SEASONS.map((label) => createGroupJoiningPricingSeason(label))
+  };
+}
+
+/** Shared departure: one price per person. Drops private group-size columns. */
+export function withGroupJoiningLayout(tier: PricingTier): PricingTier {
+  if (tierUsesGroupJoining(tier)) return normalizeLegacyPricingTier(tier);
+
+  const hasPrices = tier.seasons.some((season) => season.cells.some((cell) => cell.price.trim()));
+
+  if (!hasPrices) {
+    return normalizeLegacyPricingTier({
+      ...tier,
+      blurb: tier.blurb.trim() || 'Per person sharing on a group joining departure.',
+      seasons: DEFAULT_GROUP_JOINING_SEASONS.map((label) => createGroupJoiningPricingSeason(label))
+    });
+  }
+
+  return normalizeLegacyPricingTier({
+    ...tier,
+    seasons: tier.seasons.map((season) => ({
+      ...season,
+      cells: [{ groupBand: GROUP_JOINING_BAND, price: '' }]
+    }))
+  });
+}
+
+/** Private departure: restore the Kenya group-size columns and clear shared rates. */
+export function withPrivateGroupLayout(tier: PricingTier): PricingTier {
+  if (!tierUsesGroupJoining(tier)) return normalizeLegacyPricingTier(tier);
+
+  return normalizeLegacyPricingTier({
+    ...tier,
+    seasons: tier.seasons.map((season) => ({
+      ...createLegacyPricingSeason(season.label),
+      dateStart: season.dateStart,
+      dateEnd: season.dateEnd
+    }))
+  });
 }
 
 export function createLegacyPricingSeason(label: string): PricingTier['seasons'][number] {

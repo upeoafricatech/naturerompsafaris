@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 
 import {
   ListingFilterDropdown,
@@ -9,11 +8,10 @@ import {
   ListingFilterOption,
   ListingFilterRange,
   ListingFilters,
-  toggleFilterValue,
-  useDraftFilters
+  toggleFilterValue
 } from '@/components/public/listing-filters';
 import type { PublicTourCatalogFacets, PublicTourPricingTier } from '@/lib/public/types';
-import { localePath } from '@/lib/public/locale-path';
+import { PUBLIC_TOUR_COLLECTIONS } from '@/lib/public/tour-collections';
 import {
   formatComfortTierLabel,
   TOUR_CATALOG_COUNTRIES,
@@ -22,7 +20,8 @@ import {
   TOUR_COMFORT_TIERS
 } from '@/lib/public/tour-format';
 
-type TourCatalogActive = {
+export type TourCatalogActive = {
+  collection?: string;
   country?: string;
   destination: string[];
   durationMax?: string;
@@ -37,11 +36,12 @@ type TourCatalogActive = {
 type TourCatalogFiltersProps = {
   active: TourCatalogActive;
   facets: PublicTourCatalogFacets;
-  locale: string;
+  onChange: (next: TourCatalogActive) => void;
 };
 
-function buildQuery(active: TourCatalogActive) {
+export function buildTourCatalogQuery(active: TourCatalogActive) {
   const params = new URLSearchParams();
+  if (active.collection) params.set('collection', active.collection);
   if (active.country) params.set('country', active.country);
   if (active.destination.length) params.set('destination', active.destination.join(','));
   if (active.experience.length) params.set('experience', active.experience.join(','));
@@ -62,6 +62,7 @@ function asNumber(value: string | undefined, fallback: number) {
 
 function countActiveFilters(active: TourCatalogActive) {
   return (
+    (active.collection ? 1 : 0) +
     (active.country ? 1 : 0) +
     (active.destination?.length ?? 0) +
     (active.experience?.length ?? 0) +
@@ -72,7 +73,8 @@ function countActiveFilters(active: TourCatalogActive) {
   );
 }
 
-const EMPTY_FILTERS: TourCatalogActive = {
+export const EMPTY_TOUR_FILTERS: TourCatalogActive = {
+  collection: undefined,
   country: undefined,
   destination: [],
   durationMax: undefined,
@@ -84,9 +86,7 @@ const EMPTY_FILTERS: TourCatalogActive = {
   pricingTiers: []
 };
 
-export function TourCatalogFilters({ active, facets, locale }: TourCatalogFiltersProps) {
-  const router = useRouter();
-  const basePath = localePath(locale, '/tours');
+export function TourCatalogFilters({ active, facets, onChange }: TourCatalogFiltersProps) {
   const normalizedActive = {
     ...active,
     destination: active.destination ?? [],
@@ -94,13 +94,12 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
     park: active.park ?? [],
     pricingTiers: active.pricingTiers ?? []
   };
-  const { commit, draft, draftRef } = useDraftFilters(normalizedActive, buildQuery, (query) => {
-    router.push(query ? `${basePath}?${query}` : basePath, { scroll: false });
-  });
-  const destination = draft.destination ?? [];
-  const experience = draft.experience ?? [];
-  const park = draft.park ?? [];
-  const pricingTiers = draft.pricingTiers ?? [];
+  const activeRef = React.useRef(normalizedActive);
+  activeRef.current = normalizedActive;
+  const destination = normalizedActive.destination;
+  const experience = normalizedActive.experience;
+  const park = normalizedActive.park;
+  const pricingTiers = normalizedActive.pricingTiers;
 
   const durationMin = facets.durationBounds?.min ?? TOUR_CATALOG_DURATION_BOUNDS.min;
   const durationMax = facets.durationBounds?.max ?? TOUR_CATALOG_DURATION_BOUNDS.max;
@@ -118,18 +117,24 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
 
   React.useEffect(() => {
     setDurationRange([
-      asNumber(draft.durationMin, durationMin),
-      asNumber(draft.durationMax, durationMax)
+      asNumber(active.durationMin, durationMin),
+      asNumber(active.durationMax, durationMax)
     ]);
-  }, [draft.durationMin, draft.durationMax, durationMin, durationMax]);
+  }, [active.durationMin, active.durationMax, durationMin, durationMax]);
 
   React.useEffect(() => {
-    setPriceRange([asNumber(draft.priceMin, priceMin), asNumber(draft.priceMax, priceMax)]);
-  }, [draft.priceMin, draft.priceMax, priceMin, priceMax]);
+    setPriceRange([asNumber(active.priceMin, priceMin), asNumber(active.priceMax, priceMax)]);
+  }, [active.priceMin, active.priceMax, priceMin, priceMax]);
 
   function update(partial: Partial<TourCatalogActive>) {
-    commit({ ...draftRef.current, ...partial });
+    const next = { ...activeRef.current, ...partial };
+    activeRef.current = next;
+    onChange(next);
   }
+
+  const collections = PUBLIC_TOUR_COLLECTIONS.filter(
+    (item) => facets.collectionIds.includes(item.id) || item.id === normalizedActive.collection
+  );
 
   const countries = TOUR_CATALOG_COUNTRIES.filter(
     ({ slug }) => !facets.countrySlugs?.length || facets.countrySlugs.includes(slug)
@@ -139,7 +144,7 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
     (tier) => !facets.pricingTiers?.length || facets.pricingTiers.includes(tier.value)
   );
 
-  const activeCount = countActiveFilters(draft);
+  const activeCount = countActiveFilters(normalizedActive);
 
   return (
     <ListingFilters
@@ -148,13 +153,37 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
       onClear={() => {
         setDurationRange([durationMin, durationMax]);
         setPriceRange([priceMin, priceMax]);
-        commit(EMPTY_FILTERS);
+        update(EMPTY_TOUR_FILTERS);
       }}
       title='Safari tours'
     >
+      {collections.length ? (
+        <ListingFilterGroup title='Safari type'>
+          <ListingFilterOption
+            checked={!normalizedActive.collection}
+            id='tour-collection-all'
+            label='All safari types'
+            name='tour-collection'
+            type='radio'
+            onChange={() => update({ collection: undefined })}
+          />
+          {collections.map((item) => (
+            <ListingFilterOption
+              checked={normalizedActive.collection === item.id}
+              id={`tour-collection-${item.id}`}
+              key={item.id}
+              label={item.label}
+              name='tour-collection'
+              type='radio'
+              onChange={() => update({ collection: item.id })}
+            />
+          ))}
+        </ListingFilterGroup>
+      ) : null}
+
       <ListingFilterGroup title='Country'>
         <ListingFilterOption
-          checked={!draft.country}
+          checked={!normalizedActive.country}
           id='tour-country-all'
           label='All countries'
           name='tour-country'
@@ -163,7 +192,7 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
         />
         {countries.map(({ country, slug }) => (
           <ListingFilterOption
-            checked={draft.country === slug}
+            checked={normalizedActive.country === slug}
             id={`tour-country-${slug}`}
             key={slug}
             label={country}
@@ -188,7 +217,7 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
               label={label}
               onChange={() =>
                 update({
-                  destination: toggleFilterValue(draftRef.current.destination, label)
+                  destination: toggleFilterValue(activeRef.current.destination, label)
                 })
               }
             />
@@ -208,7 +237,9 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
               id={`tour-park-${item.slug}`}
               key={item.slug}
               label={item.label}
-              onChange={() => update({ park: toggleFilterValue(draftRef.current.park, item.slug) })}
+              onChange={() =>
+                update({ park: toggleFilterValue(activeRef.current.park, item.slug) })
+              }
             />
           ))}
         </ListingFilterDropdown>
@@ -228,7 +259,7 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
               label={label}
               onChange={() =>
                 update({
-                  experience: toggleFilterValue(draftRef.current.experience, label)
+                  experience: toggleFilterValue(activeRef.current.experience, label)
                 })
               }
             />
@@ -247,7 +278,7 @@ export function TourCatalogFilters({ active, facets, locale }: TourCatalogFilter
               onChange={() =>
                 update({
                   pricingTiers: toggleFilterValue(
-                    draftRef.current.pricingTiers,
+                    activeRef.current.pricingTiers,
                     tier.value
                   ) as PublicTourPricingTier['tier'][]
                 })

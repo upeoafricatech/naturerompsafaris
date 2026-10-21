@@ -1968,9 +1968,24 @@ body:has(.team-member-dialog[data-state='open']) [data-slot='dialog-overlay'] {
     display: none;
   }
 
+  .public-site .brand-listing-filters__body:not(.is-collapsed) {
+    max-height: min(70vh, 36rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.15rem;
+  }
+
   .public-site .brand-listing-filters.is-mobile-collapsed .brand-listing-filters__header,
   .public-site .brand-listing-filters.is-mobile-collapsed .brand-listing-filters__active {
     display: none;
+  }
+
+  .public-site .brand-listing-filters__option {
+    min-height: 2.75rem;
+  }
+
+  .public-site .brand-listing-filters__range {
+    overflow: hidden;
   }
 }
 
@@ -2229,10 +2244,10 @@ body:has(.team-member-dialog[data-state='open']) [data-slot='dialog-overlay'] {
 
 .public-site .brand-listing-filters__option-label {
   flex: 1;
+  line-height: 1.35;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .public-site .brand-listing-filters__count {
@@ -3301,6 +3316,16 @@ body:has(.team-member-dialog[data-state='open']) [data-slot='dialog-overlay'] {
   width: min(960px, 100%);
 }
 
+.public-site .nr-submenu.nr-submenu--columns.nr-submenu--columns-three {
+  gap: 20px 28px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(980px, calc(100vw - 2rem));
+}
+
+.public-site .nr-submenu--columns-three .nr-submenu-col + .nr-submenu-col::before {
+  left: -14px;
+}
+
 .public-site .nr-submenu--columns::before {
   display: none;
 }
@@ -4151,7 +4176,8 @@ body:has(.team-member-dialog[data-state='open']) [data-slot='dialog-overlay'] {
   .public-site .nr-submenu,
   .public-site .nr-submenu.nr-submenu--dynamic,
   .public-site .nr-submenu.nr-submenu--columns,
-  .public-site .nr-submenu.nr-submenu--columns-wide {
+  .public-site .nr-submenu.nr-submenu--columns-wide,
+  .public-site .nr-submenu.nr-submenu--columns.nr-submenu--columns-three {
     background: #f6f1ea;
     border: 0;
     border-radius: 0;
@@ -4444,5 +4470,13 @@ body:has(.team-member-dialog[data-state='open']) [data-slot='dialog-overlay'] {
 
   .public-site .nr-topbar__link span {
     display: none;
+  }
+
+  .public-site .nr-topbar__social {
+    display: none;
+  }
+
+  .public-site .nr-topbar__contact {
+    overflow: visible;
   }
 }

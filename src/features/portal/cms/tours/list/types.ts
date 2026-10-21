@@ -9,10 +9,15 @@ export interface TourListItem {
   status: string;
   days: number | null;
   nights: number | null;
+  /** Lowest listed rate, in USD. Null when the document has no price. */
+  priceFrom: number | null;
   /** Publish timestamp from the English translation (null when never published). */
   publishedAt: string | null;
   updatedAt: string;
   trashed: boolean;
+  catalogGroup: string;
+  /** 0-100 readiness score from the same checks used in the tour wizard. */
+  seoScore: number;
 }
 
 export interface TourListParams {
@@ -20,6 +25,8 @@ export interface TourListParams {
   search: string;
   /** Month filter as `YYYY-MM`; empty string means "all dates". */
   month: string;
+  /** Catalog group id. Empty string means every collection. */
+  catalog: string;
   /** 1-based page index. */
   page: number;
 }

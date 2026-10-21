@@ -4,7 +4,10 @@ import * as React from 'react';
 
 import { Icons } from '@/components/icons';
 import { SafariPricingMarketTabs } from '@/components/public/tours/safari-pricing-market-tabs';
-import { isDayTripPricingTierPublic } from '@/features/portal/cms/tours/legacy-pricing';
+import {
+  isDayTripPricingTierPublic,
+  isGroupJoiningPricingTierPublic
+} from '@/features/portal/cms/tours/legacy-pricing';
 import {
   formatTourPrice,
   hasPublishedTourPrices,
@@ -84,19 +87,36 @@ function openTourInquiry() {
   window.dispatchEvent(new CustomEvent('brand:open-tour-inquiry'));
 }
 
-function PriceCell({ currency, price }: { currency: string; price: number | null | undefined }) {
+function PriceCell({
+  align = 'center',
+  currency,
+  price,
+  showCaption = true
+}: {
+  align?: 'center' | 'start';
+  currency: string;
+  price: number | null | undefined;
+  showCaption?: boolean;
+}) {
   if (!price) {
     return <span className='text-xs text-[var(--brand-muted)]'>On request</span>;
   }
 
   return (
-    <span className='inline-flex flex-col items-center leading-tight'>
+    <span
+      className={cn(
+        'inline-flex flex-col leading-tight',
+        align === 'start' ? 'items-start' : 'items-center'
+      )}
+    >
       <strong className='font-price text-base text-[var(--brand-heading)] sm:text-[1.05rem]'>
         {formatTourPrice(price, currency)}
       </strong>
-      <span className='mt-1 text-[10px] font-normal text-[var(--brand-muted)] sm:text-[11px]'>
-        per person
-      </span>
+      {showCaption ? (
+        <span className='mt-1 text-[10px] font-normal text-[var(--brand-muted)] sm:text-[11px]'>
+          per person
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -168,8 +188,9 @@ function PricingTierTables({ tiers }: { tiers: PublicTourPricingTier[] }) {
         const bands = collectBands(tier);
         const theme = tierTheme(tier.tier);
         const dayTrip = isDayTripPricingTierPublic(tier);
-        const seasonWidth = bands.length > 4 ? 21 : 23;
-        const actionWidth = 11;
+        const groupJoining = isGroupJoiningPricingTierPublic(tier);
+        const seasonWidth = groupJoining ? 46 : bands.length > 4 ? 21 : 23;
+        const actionWidth = groupJoining ? 18 : 11;
         const reservedWidth = dayTrip ? actionWidth : seasonWidth + actionWidth;
         const paxWidth = bands.length ? (100 - reservedWidth) / bands.length : 0;
         const headStyle = {
@@ -179,7 +200,11 @@ function PricingTierTables({ tiers }: { tiers: PublicTourPricingTier[] }) {
 
         return (
           <div
-            className={cn('brand-pricing-tier', dayTrip && 'brand-pricing-tier--day-trip')}
+            className={cn(
+              'brand-pricing-tier',
+              dayTrip && 'brand-pricing-tier--day-trip',
+              groupJoining && 'brand-pricing-tier--group-joining'
+            )}
             key={tier.id}
           >
             {dayTrip ? null : (
@@ -220,7 +245,12 @@ function PricingTierTables({ tiers }: { tiers: PublicTourPricingTier[] }) {
                             const cell = season.cells.find((item) => item.groupBand === band);
                             return (
                               <td className='brand-pricing-tier__price tabular-nums' key={band}>
-                                <PriceCell currency={tier.currency} price={cell?.price} />
+                                <PriceCell
+                                  align={groupJoining ? 'start' : 'center'}
+                                  currency={tier.currency}
+                                  price={cell?.price}
+                                  showCaption={!groupJoining}
+                                />
                               </td>
                             );
                           })}

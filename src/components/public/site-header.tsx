@@ -370,7 +370,8 @@ export function SiteHeader({ locale, navItems, siteSettings }: SiteHeaderProps) 
                         className={cn(
                           'nr-submenu nr-submenu--columns',
                           tabs.some((column) => (column.items?.length ?? 0) >= 8) &&
-                            'nr-submenu--columns-wide'
+                            'nr-submenu--columns-wide',
+                          tabs.length >= 3 && 'nr-submenu--columns-three'
                         )}
                       >
                         {tabs.map((column) => {

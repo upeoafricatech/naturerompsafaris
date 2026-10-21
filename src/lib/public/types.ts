@@ -148,6 +148,7 @@ export type PublicExperienceMenuItem = {
 };
 
 export type PublicTour = {
+  catalogGroup?: string | null;
   countryIds?: TourSafariMarketId[];
   countryLabels?: string[];
   days: number | null;
@@ -223,6 +224,8 @@ export type PublicTourDetail = PublicTour & {
 };
 
 export type PublicTourCatalogFacets = {
+  /** Collection ids that match at least one published tour. */
+  collectionIds: string[];
   /** Country market slugs present on at least one published tour. */
   countrySlugs: string[];
   destinationLabels: string[];
@@ -240,6 +243,7 @@ export type PublicTourCatalogFacets = {
 };
 
 export type PublicTourCatalogFilters = {
+  collection?: string;
   country?: string;
   destination?: string[];
   durationMax?: number;

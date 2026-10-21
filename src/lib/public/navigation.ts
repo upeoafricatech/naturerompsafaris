@@ -2,6 +2,7 @@ import type { PublicAccommodation } from '@/features/accommodations/public/types
 
 import { buildLegalFooterLinks } from './legal-content';
 import { localePath } from './locale-path';
+import { publicTourCollectionsForMenu } from './tour-collections';
 import type {
   PublicDestination,
   PublicExperienceMenuItem,
@@ -178,12 +179,37 @@ function buildExperienceMenuTabs(
   return grouped;
 }
 
+function collectionLinks(locale: string, menu: 'kenya' | 'tanzania' | 'combined'): PublicNavItem[] {
+  return publicTourCollectionsForMenu(menu).map((item) => ({
+    label: item.label,
+    href: lp(locale, 'navPath' in item ? item.navPath : `/tours?collection=${item.id}`)
+  }));
+}
+
 export function safariTourNavItems(locale: string): PublicNavItem[] {
   const path = (route: string) => lp(locale, route);
   return [
-    { label: 'Kenya Safaris', href: path('/tours?country=kenya') },
-    { label: 'Tanzania Safaris', href: path('/tours?country=tanzania') },
-    { label: 'Kenya & Tanzania Safaris', href: path('/tours') }
+    {
+      label: 'Kenya',
+      href: path('/tours?country=kenya'),
+      items: [
+        { label: 'All Kenya safaris', href: path('/tours?country=kenya') },
+        ...collectionLinks(locale, 'kenya')
+      ]
+    },
+    {
+      label: 'Tanzania',
+      href: path('/tours?country=tanzania'),
+      items: [
+        { label: 'All Tanzania safaris', href: path('/tours?country=tanzania') },
+        ...collectionLinks(locale, 'tanzania')
+      ]
+    },
+    {
+      label: 'Kenya & Tanzania',
+      href: path('/tours?collection=combined'),
+      items: collectionLinks(locale, 'combined')
+    }
   ];
 }
 
@@ -230,7 +256,7 @@ export function buildPublicNavigation(
       label: 'Safari Tours',
       href: path('/tours'),
       items: safariTourNavItems(locale),
-      variant: 'simple'
+      variant: 'columns'
     },
     {
       label: 'Experiences',
@@ -259,7 +285,9 @@ export function buildFooterNavigation(locale: string): PublicFooterColumn[] {
     { label: 'Contact', href: path('/contact') }
   ]);
 
-  const safariLinks = uniqueLinks(safariTourNavItems(locale));
+  const safariLinks = uniqueLinks(
+    safariTourNavItems(locale).flatMap((column) => column.items ?? [])
+  );
 
   const policyLinks = buildLegalFooterLinks(locale);
 

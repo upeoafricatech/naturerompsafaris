@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { requirePortalSession } from '@/lib/auth/portal';
+import { analyzeSeo } from '@/features/portal/cms/seo/analyze';
 import { createClient } from '@/lib/supabase/server';
 import { revalidateTourPublicPaths } from '@/features/portal/cms/tours/revalidate-public-paths';
 import {
@@ -42,6 +43,36 @@ function monthRange(month: string): { start: string; end: string } | null {
   const start = new Date(Date.UTC(year, monthIndex, 1));
   const end = new Date(Date.UTC(year, monthIndex + 1, 1));
   return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function plainText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function overviewText(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const html = (value as { html?: unknown }).html;
+  return typeof html === 'string' ? plainText(html) : '';
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+function galleryCount(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function toPrice(value: number | string | null): number | null {
+  if (value == null || value === '') return null;
+  const price = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(price) ? price : null;
 }
 
 function monthLabel(value: string): string {
@@ -109,7 +140,7 @@ export async function listTours(params: TourListParams): Promise<TourListResult>
   let query = supabase
     .from('tours')
     .select(
-      'id, status, days, nights, updated_at, tour_translations(title, slug, published_at, locale)',
+      'id, status, days, nights, price_from, updated_at, catalog_group, gallery, tour_translations(title, slug, published_at, locale, excerpt, overview, seo_title, seo_description, focus_keyword, keywords)',
       { count: 'exact' }
     );
 
@@ -122,6 +153,7 @@ export async function listTours(params: TourListParams): Promise<TourListResult>
   }
 
   if (tourIdsFilter) query = query.in('id', tourIdsFilter);
+  if (params.catalog) query = query.eq('catalog_group', params.catalog);
 
   query = query.order('updated_at', { ascending: false }).range(from, to);
 
@@ -133,12 +165,21 @@ export async function listTours(params: TourListParams): Promise<TourListResult>
     status: string;
     days: number | null;
     nights: number | null;
+    price_from: number | string | null;
     updated_at: string;
+    catalog_group: string | null;
+    gallery: unknown;
     tour_translations: Array<{
       title: string | null;
       slug: string | null;
       published_at: string | null;
       locale: string | null;
+      excerpt: string | null;
+      overview: unknown;
+      seo_title: string | null;
+      seo_description: string | null;
+      focus_keyword: string | null;
+      keywords: unknown;
     }> | null;
   };
 
@@ -149,17 +190,33 @@ export async function listTours(params: TourListParams): Promise<TourListResult>
         row.tour_translations?.find((entry) => entry.locale === 'en') ??
         row.tour_translations?.[0] ??
         null;
+      const title = translation?.title ?? 'Untitled draft';
+      const slug = translation?.slug ?? '';
+      const images = galleryCount(row.gallery);
+      const seo = analyzeSeo({
+        title: translation?.seo_title || title,
+        metaDescription: translation?.seo_description ?? '',
+        slug,
+        focusKeyword: translation?.focus_keyword ?? '',
+        keywords: toStringArray(translation?.keywords),
+        body: `${translation?.excerpt ?? ''} ${overviewText(translation?.overview)}`,
+        imageCount: images,
+        imagesWithAlt: images
+      });
 
       return {
         id: row.id,
-        title: translation?.title ?? 'Untitled draft',
-        slug: translation?.slug ?? '',
+        title,
+        slug,
         status: displayStatus(row.status),
         days: row.days,
         nights: row.nights,
+        priceFrom: toPrice(row.price_from),
         publishedAt: translation?.published_at ?? null,
         updatedAt: row.updated_at,
-        trashed: row.status === 'archived'
+        trashed: row.status === 'archived',
+        catalogGroup: row.catalog_group ?? '',
+        seoScore: seo.score
       };
     });
 

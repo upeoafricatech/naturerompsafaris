@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 
-import { TourCard } from '@/components/public/cards/content-cards';
-import { TourCatalogFilters } from '@/components/public/tours/tour-catalog-filters';
-import { EmptyState, ListingShell } from '@/components/public/page-shell';
 import { PublicPageHero } from '@/components/public/public-page-hero';
+import { TourCatalogBrowser } from '@/components/public/tours/tour-catalog-browser';
+import type { TourCatalogActive } from '@/components/public/tours/tour-catalog-filters';
 import { BRAND_PUBLIC_HERO_IMAGES } from '@/config/brand';
 import { localePath } from '@/lib/public/locale-path';
 import { getPageHero, getPublicTourCatalog } from '@/lib/public/site-data';
+import type { TourCatalogTour } from '@/lib/public/tour-catalog-match';
+import { isPublicTourCollectionId } from '@/lib/public/tour-collections';
 import { TOUR_CATALOG_COUNTRIES } from '@/lib/public/tour-format';
-import type { PublicTourPricingTier } from '@/lib/public/types';
+import type { PublicTour, PublicTourPricingTier } from '@/lib/public/types';
 import { buildListingPageMetadata, hasSearchParams } from '@/lib/seo/listing-metadata';
 
 const toursPageTitle = 'Safari Tours & Itineraries';
@@ -18,6 +19,7 @@ const toursPageDescription =
 type ToursPageProps = {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{
+    collection?: string;
     country?: string;
     destination?: string;
     duration_max?: string;
@@ -38,12 +40,6 @@ function parseFilterList(value?: string) {
     .filter(Boolean);
 }
 
-function parsePrice(value?: string) {
-  if (!value?.trim()) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function parseTierList(value?: string): PublicTourPricingTier['tier'][] {
   return parseFilterList(value).filter(
     (tier): tier is PublicTourPricingTier['tier'] =>
@@ -51,10 +47,39 @@ function parseTierList(value?: string): PublicTourPricingTier['tier'][] {
   );
 }
 
+function parseCollection(value?: string) {
+  const id = value?.trim();
+  if (!id || !isPublicTourCollectionId(id)) return undefined;
+  return id;
+}
+
 function parseCountry(value?: string) {
   const slug = value?.trim();
   if (!slug) return undefined;
   return TOUR_CATALOG_COUNTRIES.some((item) => item.slug === slug) ? slug : undefined;
+}
+
+function toCatalogTour(tour: PublicTour): TourCatalogTour {
+  return {
+    catalogGroup: tour.catalogGroup ?? null,
+    countryIds: tour.countryIds ?? [],
+    countryLabels: tour.countryLabels ?? [],
+    days: tour.days,
+    destinationLabels: tour.destinationLabels ?? [],
+    excerpt: tour.excerpt,
+    experienceLabels: tour.experienceLabels ?? [],
+    href: tour.href,
+    id: tour.id,
+    imageAlt: tour.imageAlt,
+    imageUrl: tour.imageUrl,
+    maxPrice: tour.maxPrice ?? null,
+    minPrice: tour.minPrice ?? null,
+    nights: tour.nights,
+    parkSlugs: tour.parkSlugs ?? [],
+    priceFrom: tour.priceFrom,
+    pricingTiers: (tour.pricingTiers ?? []).map((tier) => ({ tier: tier.tier })),
+    title: tour.title
+  };
 }
 
 export async function generateMetadata({
@@ -77,7 +102,8 @@ export async function generateMetadata({
 export default async function ToursPage({ params, searchParams }: ToursPageProps) {
   const { locale } = await params;
   const query = await searchParams;
-  const activeFilters = {
+  const initialFilters: TourCatalogActive = {
+    collection: parseCollection(query.collection),
     country: parseCountry(query.country),
     destination: parseFilterList(query.destination),
     durationMax: query.duration_max?.trim() || undefined,
@@ -90,17 +116,7 @@ export default async function ToursPage({ params, searchParams }: ToursPageProps
   };
 
   const [{ tours, facets }, pageHero] = await Promise.all([
-    getPublicTourCatalog(locale, {
-      country: activeFilters.country,
-      destination: activeFilters.destination,
-      durationMax: parsePrice(activeFilters.durationMax),
-      durationMin: parsePrice(activeFilters.durationMin),
-      experience: activeFilters.experience,
-      park: activeFilters.park,
-      priceMax: parsePrice(activeFilters.priceMax),
-      priceMin: parsePrice(activeFilters.priceMin),
-      pricingTiers: activeFilters.pricingTiers
-    }),
+    getPublicTourCatalog(locale),
     getPageHero('tours')
   ]);
   const hero = BRAND_PUBLIC_HERO_IMAGES.tours;
@@ -117,46 +133,12 @@ export default async function ToursPage({ params, searchParams }: ToursPageProps
         overlayTone='black'
         title={toursPageTitle}
       />
-      <ListingShell
-        filters={<TourCatalogFilters active={activeFilters} facets={facets} locale={locale} />}
-      >
-        <div className='mb-6 flex items-baseline justify-between gap-3'>
-          <h2 className='brand-heading font-display text-2xl'>Safari Tours</h2>
-          <span className='text-sm text-[var(--brand-muted)]'>
-            {tours.length} {tours.length === 1 ? 'tour' : 'tours'} found
-          </span>
-        </div>
-        {tours.length ? (
-          <div className='grid gap-6 md:grid-cols-2 xl:grid-cols-3'>
-            {tours.map((tour) => (
-              <TourCard
-                item={{
-                  days: tour.days,
-                  excerpt: tour.excerpt,
-                  href: tour.href,
-                  imageAlt: tour.imageAlt,
-                  imageUrl: tour.imageUrl,
-                  nights: tour.nights,
-                  priceFrom: tour.priceFrom,
-                  title: tour.title
-                }}
-                key={tour.id}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            actionHref={localePath(locale, hasSearchParams(query) ? '/tours' : '/contact')}
-            actionLabel={hasSearchParams(query) ? 'Clear filters' : 'Plan a Custom Safari'}
-            message={
-              hasSearchParams(query)
-                ? 'No tours match these filters. Widen the duration or price range, or clear filters to see all safaris.'
-                : 'Published tours will appear here once they are added through the Nature Romp CMS.'
-            }
-            title={hasSearchParams(query) ? 'No tours match' : 'No tours published yet'}
-          />
-        )}
-      </ListingShell>
+      <TourCatalogBrowser
+        facets={facets}
+        initialFilters={initialFilters}
+        locale={locale}
+        tours={tours.map(toCatalogTour)}
+      />
     </>
   );
 }

@@ -34,6 +34,7 @@ import {
   type TourSafariMarketId
 } from '@/features/experiences/public/tour-markets';
 import type { BrandCountryId } from '@/features/experiences/public/country-map-copy';
+import { TOUR_CATALOG_GROUPS, tourCatalogGroupLabel } from './catalog';
 import { ExperiencePricingSelector } from './experience-pricing-selector';
 import { ItineraryDescriptionEditor } from './itinerary-description-editor';
 import {
@@ -123,7 +124,7 @@ function ItineraryInput({
             <Input
               value={day.title}
               onChange={(event) => updateDay(index, { title: event.target.value })}
-              placeholder='Day title — e.g. Nairobi to Masai Mara'
+              placeholder='Day title, e.g. Nairobi to Masai Mara'
             />
             <div className='grid gap-2'>
               <Label htmlFor={`itinerary-description-${index}`}>Day description</Label>
@@ -301,7 +302,7 @@ function RouteLegsInput({
         </div>
       ) : (
         <p className='mt-4 text-sm text-muted-foreground'>
-          Optional — add legs for multi-stop routes, or rely on start/end above.
+          Optional. Add legs for multi-stop routes, or rely on start/end above.
         </p>
       )}
     </div>
@@ -526,6 +527,31 @@ export function TourWizard({ id, initialValues, options }: TourWizardProps) {
                 />
               )}
             </form.AppField>
+            <form.AppField name='catalogGroup'>
+              {(field) => (
+                <div className='grid gap-2'>
+                  <Label htmlFor='tour-catalog-group'>Collection</Label>
+                  <p className='text-muted-foreground text-xs'>
+                    Keeps lodge, group joining, coast, and climbing trips together in the safari
+                    list and in the pricing step.
+                  </p>
+                  <select
+                    id='tour-catalog-group'
+                    className='border-input bg-background h-9 rounded-md border px-3 text-sm'
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  >
+                    <option value=''>Choose a collection</option>
+                    {TOUR_CATALOG_GROUPS.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </form.AppField>
             <div className='grid gap-4 sm:grid-cols-3'>
               <form.AppField
                 name='days'
@@ -605,7 +631,7 @@ export function TourWizard({ id, initialValues, options }: TourWizardProps) {
                   <Label>Safari markets</Label>
                   <p className='text-muted-foreground text-xs'>
                     Uses the same operating country ids as experiences. Pick one country or East
-                    Africa for Kenya–Tanzania combinations and similar multi-country routes.
+                    Africa for Kenya and Tanzania combinations and similar multi-country routes.
                   </p>
                   {suggestedMarkets.length ? (
                     <div className='flex flex-wrap items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground'>
@@ -679,7 +705,7 @@ export function TourWizard({ id, initialValues, options }: TourWizardProps) {
                 searchPlaceholder='Search experiences…'
               />
               <p className='text-muted-foreground text-xs'>
-                Linked experiences supply pricing tables on the Pricing step — updates on the
+                Linked experiences supply pricing tables on the Pricing step. Updates on the
                 experience flow through to this trip automatically.
               </p>
             </div>
@@ -713,7 +739,7 @@ export function TourWizard({ id, initialValues, options }: TourWizardProps) {
                   label='What’s included'
                   value={field.state.value}
                   onChange={field.handleChange}
-                  placeholder='e.g. Park fees — press Enter to add'
+                  placeholder='e.g. Park fees. Press Enter to add'
                 />
               )}
             </form.AppField>
@@ -723,7 +749,7 @@ export function TourWizard({ id, initialValues, options }: TourWizardProps) {
                   label='What’s excluded'
                   value={field.state.value}
                   onChange={field.handleChange}
-                  placeholder='e.g. International flights — press Enter to add'
+                  placeholder='e.g. International flights. Press Enter to add'
                 />
               )}
             </form.AppField>
@@ -777,6 +803,7 @@ export function TourWizard({ id, initialValues, options }: TourWizardProps) {
             experienceOptions={options.experiences}
             priceFrom={values.priceFrom}
             pricingExperienceId={values.pricingExperienceId}
+            catalogGroup={values.catalogGroup}
             pricingMode={usesMountainPricing ? 'mountain' : 'safari'}
             pricingTableKeys={values.pricingTableKeys}
             pricingTiers={values.pricingTiers}
@@ -927,6 +954,7 @@ function ReviewSummary({
   const rows: Array<{ label: string; value: string }> = [
     { label: 'Title', value: values.title },
     { label: 'Slug', value: values.slug },
+    { label: 'Collection', value: tourCatalogGroupLabel(values.catalogGroup) },
     {
       label: 'Duration',
       value: values.days
@@ -976,7 +1004,7 @@ function ReviewSummary({
           <dt className='text-muted-foreground text-xs font-medium uppercase tracking-wide'>
             {row.label}
           </dt>
-          <dd className='text-sm'>{row.value || '—'}</dd>
+          <dd className='text-sm'>{row.value || '-'}</dd>
         </div>
       ))}
     </dl>

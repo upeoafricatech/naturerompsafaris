@@ -126,7 +126,9 @@ export const tourFormSchema = z.object({
   pricingExperienceId: z.string(),
   pricingTableKeys: z.array(experiencePricingTableKeySchema).max(3),
   gallery: z.array(z.string()),
-  /** Safari markets — same country ids as experiences, plus east-africa for multi-country trips. */
+  /** Filing group so lodge, group-joining, coast, and climbing trips stay together. */
+  catalogGroup: z.string(),
+  /** Safari markets. Same country ids as experiences, plus east-africa for multi-country trips. */
   countries: z.array(tourSafariMarketIdSchema).min(1, 'Select at least one safari market'),
   // Relations
   parkIds: z.array(z.string()),
@@ -158,7 +160,8 @@ export const tourStepSchemas = [
     priceFrom: true,
     startLocation: true,
     endLocation: true,
-    routeLegs: true
+    routeLegs: true,
+    catalogGroup: true
   }),
   tourFormSchema.pick({ itineraryDays: true }),
   tourFormSchema.pick({
@@ -204,7 +207,10 @@ export const tourWizardSteps = [
   },
   { title: 'Gallery', description: 'Choose the images shown on this tour.' },
   { title: 'Story', description: 'Overview, notices, and traveler FAQs.' },
-  { title: 'Pricing', description: 'Pick pricing tables from a linked experience (updates live).' },
+  {
+    title: 'Pricing',
+    description: 'Choose the price table for this collection, then enter the rates.'
+  },
   { title: 'SEO', description: 'Search appearance, keywords, and readiness score.' },
   { title: 'Review', description: 'Confirm everything, then save or publish.' }
 ];
@@ -249,6 +255,7 @@ export const emptyTourValues: TourFormValues = {
   pricingExperienceId: '',
   pricingTableKeys: [],
   gallery: [],
+  catalogGroup: '',
   countries: ['kenya'],
   parkIds: [],
   destinationIds: [],

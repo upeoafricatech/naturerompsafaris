@@ -25,9 +25,9 @@ import {
 import { LEGACY_PAX_BANDS, mapPublicSeasonCells } from '@/features/portal/cms/tours/legacy-pricing';
 import {
   formatTourSafariMarketLabel,
-  parseTourSafariMarkets,
-  type TourSafariMarketId
+  parseTourSafariMarkets
 } from '@/features/experiences/public/tour-markets';
+import { PUBLIC_TOUR_COLLECTIONS, tourMatchesCollection } from '@/lib/public/tour-collections';
 import {
   normalizeGaMeasurementId,
   normalizeGoogleAdsId,
@@ -38,11 +38,8 @@ import { normalizeSiteVerificationToken } from '@/lib/site-verification';
 import { localePath } from './locale-path';
 import { activeHeroSlides, normalizeHeroSlides } from './hero-slides';
 import { normalizePageHero, type PageHeroKey } from './page-heroes';
-import {
-  TOUR_CATALOG_DURATION_BOUNDS,
-  TOUR_CATALOG_PRICE_BOUNDS,
-  tourCountryLabelFromSlug
-} from './tour-format';
+import { TOUR_CATALOG_DURATION_BOUNDS, TOUR_CATALOG_PRICE_BOUNDS } from './tour-format';
+import { tourMatchesFilters } from './tour-catalog-match';
 import type { HomeReviewItem } from './home-reviews';
 import type {
   HeroSlide,
@@ -144,10 +141,6 @@ function toFiniteNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
-}
-
-function normalizeFilterValue(value: string) {
-  return value.trim().toLowerCase();
 }
 
 function formatTierLabel(tier: PublicTourPricingTier['tier']) {
@@ -586,6 +579,7 @@ type TourTranslationListRow = {
         days: number | null;
         nights: number | null;
         price_from: number | null;
+        catalog_group?: string | null;
         countries?: string[] | null;
         start_location?: string | null;
         end_location?: string | null;
@@ -602,6 +596,7 @@ type TourTranslationListRow = {
         days: number | null;
         nights: number | null;
         price_from: number | null;
+        catalog_group?: string | null;
         countries?: string[] | null;
         start_location?: string | null;
         end_location?: string | null;
@@ -958,6 +953,7 @@ function mapTourListRows(
 
     return [
       {
+        catalogGroup: typeof tour.catalog_group === 'string' ? tour.catalog_group : null,
         countryIds,
         countryLabels,
         days: tour.days,
@@ -982,76 +978,6 @@ function mapTourListRows(
   });
 }
 
-function tourMatchesFilters(tour: PublicTour, filters: PublicTourCatalogFilters) {
-  const destinationFilters = filters.destination?.map(normalizeFilterValue) ?? [];
-  const experienceFilters = filters.experience?.map(normalizeFilterValue) ?? [];
-  const parkFilters = filters.park?.map(normalizeFilterValue) ?? [];
-  const tierFilters = filters.pricingTiers ?? [];
-
-  if (filters.country) {
-    const slug = filters.country as TourSafariMarketId;
-    const tourCountries = tour.countryIds ?? [];
-    if (tourCountries.length) {
-      if (!tourCountries.includes(slug)) return false;
-    } else {
-      const countryLabel = tourCountryLabelFromSlug(filters.country);
-      if (
-        countryLabel &&
-        !tour.countryLabels?.some(
-          (label) => normalizeFilterValue(label) === normalizeFilterValue(countryLabel)
-        )
-      ) {
-        return false;
-      }
-    }
-  }
-
-  if (
-    destinationFilters.length &&
-    !tour.destinationLabels?.some((label) =>
-      destinationFilters.includes(normalizeFilterValue(label))
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    experienceFilters.length &&
-    !tour.experienceLabels?.some((label) => experienceFilters.includes(normalizeFilterValue(label)))
-  ) {
-    return false;
-  }
-
-  if (
-    parkFilters.length &&
-    !tour.parkSlugs?.some((slug) => parkFilters.includes(normalizeFilterValue(slug)))
-  ) {
-    return false;
-  }
-
-  if (tierFilters.length && !tour.pricingTiers?.some((tier) => tierFilters.includes(tier.tier))) {
-    return false;
-  }
-
-  if (filters.durationMin != null && (tour.days ?? 0) < filters.durationMin) return false;
-  if (filters.durationMax != null && (tour.days ?? Number.MAX_SAFE_INTEGER) > filters.durationMax) {
-    return false;
-  }
-
-  // Price range uses overlap against the tour's available from/to pricing.
-  const tourLow = tour.minPrice ?? tour.priceFrom ?? null;
-  const tourHigh = tour.maxPrice ?? tour.priceFrom ?? null;
-  if (filters.priceMin != null || filters.priceMax != null) {
-    if (tourLow == null && tourHigh == null) return false;
-    const low = tourLow ?? tourHigh ?? 0;
-    const high = tourHigh ?? tourLow ?? 0;
-    if (filters.priceMin != null && high < filters.priceMin) return false;
-    if (filters.priceMax != null && low > filters.priceMax) return false;
-  }
-
-  return true;
-}
-
 function buildTourCatalogFacets(tours: PublicTour[]): PublicTourCatalogFacets {
   const countrySlugs = new Set<string>();
   const destinationLabels = new Set<string>();
@@ -1070,7 +996,12 @@ function buildTourCatalogFacets(tours: PublicTour[]): PublicTourCatalogFacets {
     tour.pricingTiers?.forEach((tier) => pricingTiers.add(tier.tier));
   }
 
+  const collectionIds = PUBLIC_TOUR_COLLECTIONS.map((item) => item.id).filter((id) =>
+    tours.some((tour) => tourMatchesCollection(tour, id))
+  );
+
   return {
+    collectionIds,
     countrySlugs: [...countrySlugs],
     destinationLabels: [...destinationLabels].toSorted((a, b) => a.localeCompare(b)),
     durationBounds: { ...TOUR_CATALOG_DURATION_BOUNDS },
@@ -1103,6 +1034,7 @@ async function fetchPublishedTourRows(
         days,
         nights,
         price_from,
+        catalog_group,
         countries,
         start_location,
         end_location,
