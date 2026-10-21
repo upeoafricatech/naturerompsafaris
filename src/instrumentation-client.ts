@@ -10,8 +10,14 @@ if (!process.env.NEXT_PUBLIC_SENTRY_DISABLED) {
     // Adds request headers and IP for users, for more info visit
     sendDefaultPii: true,
 
-    // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-    tracesSampleRate: 1,
+    // Keep client tracing low in production: every traced transaction is
+    // tunneled back through /monitoring (a Node function), so high sampling
+    // also costs server Active CPU. Override with NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE.
+    tracesSampleRate: process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE
+      ? Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE)
+      : process.env.NODE_ENV === 'production'
+        ? 0.05
+        : 1,
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false

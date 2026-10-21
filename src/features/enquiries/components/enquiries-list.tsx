@@ -215,7 +215,12 @@ export function EnquiriesList() {
   const { data, isFetching, isPending, refetch } = useQuery({
     ...enquiriesListQueryOptions({ enquiryType: type, page, search, status }),
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000
+    // No fixed polling interval: an open, focused tab must not run a Server
+    // Action + DB count every 30s forever (idle CPU burn on Vercel Fluid).
+    // Data refreshes when staff return to the tab or use the manual Refresh
+    // button; staleTime keeps quick navigations from refetching needlessly.
+    staleTime: 60_000,
+    refetchOnWindowFocus: true
   });
   const showSkeleton = isPending || (isFetching && !data);
 
