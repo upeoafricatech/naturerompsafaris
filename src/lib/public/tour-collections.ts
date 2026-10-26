@@ -1,7 +1,6 @@
 /** Public safari collections. `combined` is every trip that visits both Kenya and Tanzania. */
 export const PUBLIC_TOUR_COLLECTIONS = [
   { id: 'kenya-lodges', label: 'Kenya lodge safaris', menu: 'kenya' },
-  { id: 'coast-safaris', label: 'Coast safaris', menu: 'kenya' },
   { id: 'mount-kenya', label: 'Mount Kenya', menu: 'kenya' },
   {
     id: 'day-trips',
