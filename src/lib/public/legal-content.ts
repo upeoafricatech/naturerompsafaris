@@ -270,75 +270,149 @@ export const LEGAL_PAGES: LegalPageDefinition[] = [
   {
     slug: 'terms-conditions',
     title: 'Terms & Conditions',
-    eyebrow: 'Legal',
+    eyebrow: 'Tour Booking Terms',
     description:
-      'General terms governing use of the Nature Romp Safaris Ltd website and safari booking services.',
-    lastUpdated: '2026-09-14',
+      'Booking, payment, cancellation, insurance, and on-safari terms for tours with Nature Romp Safaris Ltd — written to be clear and fair.',
+    lastUpdated: '2026-10-26',
     intro: [
-      `These Terms & Conditions apply to use of the Nature Romp Safaris website and to safari bookings made with ${legalParties}.`,
-      'Please read them together with our [Privacy Policy](/privacy-policy), [Cookie Policy](/cookie-policy), [Payment Terms](/payment-terms), and [Service Level Agreement](/service-level-agreement).'
+      `These Tour Booking Terms & Payment Conditions set out how bookings, payments, cancellations, and on-safari arrangements work when you travel with ${legalParties}.`,
+      'They are written to be clear and fair. Please read them together with our [Privacy Policy](/privacy-policy), [Cookie Policy](/cookie-policy), [Payment Terms](/payment-terms), and [Service Level Agreement](/service-level-agreement).'
     ],
     sections: [
       {
-        id: 'agreement',
-        title: '1. Agreement',
+        id: 'cancellation-charges',
+        title: '1. Safari Tour Cancellation Charges',
+        listAfterParagraphIndex: 0,
         paragraphs: [
-          `By accessing this website or booking services with ${legalParties}, you agree to these Terms & Conditions together with our [Privacy Policy](/privacy-policy), [Cookie Policy](/cookie-policy), [Payment Terms](/payment-terms), and [Service Level Agreement](/service-level-agreement) where applicable.`,
-          'If you do not agree, please do not use our website or services.'
+          'Once hotels, safari lodges, camps, domestic flights, or other services are booked on your behalf, our suppliers may charge us a fee if the booking is later cancelled. We always try to keep these charges to a minimum. The following cancellation charges apply equally to Kenya and Tanzania safaris and are calculated as a percentage of the total safari price:',
+          'In addition to the above, a 5% administrative fee is applied to every cancellation to cover transaction costs.',
+          'Where a refund is due, it will be completed within 60 days from the date we receive your official cancellation notice.'
+        ],
+        listItems: [
+          '**60 days or more** before the safari start date: no cancellation charge.',
+          '**35 to 59 days** before the safari start date: 20% of the total price.',
+          '**15 to 34 days** before the safari start date: 40% of the total price.',
+          '**4 to 14 days** before the safari start date: 60% of the total price.',
+          '**3 days or less** before the safari start date: no refund (100% cancellation charge).'
         ]
       },
       {
-        id: 'services',
-        title: '2. Our Services',
+        id: 'payment-terms',
+        title: '2. Payment Terms',
+        listAfterParagraphIndex: 0,
         paragraphs: [
-          `${tradingName} arranges tailor-made and packaged safari tours, transfers, accommodation, and related travel services in Kenya and Tanzania. We act as an agent for certain suppliers and as a principal where stated in your booking confirmation.`,
-          'Itineraries, prices, and availability on this website are indicative until confirmed in writing.'
+          'To confirm your booking, a deposit is required. The amount depends on the type of safari you choose:',
+          'Unless we agree otherwise in writing, the balance is payable on arrival or before your safari starts.'
+        ],
+        listItems: [
+          '**Budget safari:** 15% deposit, with the balance paid on arrival or before the safari starts.',
+          '**Mid-range / lodge safari:** 30% deposit to secure your accommodation.',
+          '**Private safari:** 20% deposit to arrange transport, accommodation, and park entry fees in advance.',
+          '**Kenya–Tanzania safaris:** 20% for budget safaris and 30% for mid-range or lodge safaris.'
         ]
       },
       {
-        id: 'bookings',
-        title: '3. Bookings and Confirmations',
+        id: 'accommodation',
+        title: '3. Accommodation',
         paragraphs: [
-          'A booking is confirmed only when you receive written confirmation and any required deposit has been received. We reserve the right to decline bookings at our discretion.',
-          'You are responsible for ensuring passport validity, visas, vaccinations, and travel insurance meet destination requirements.'
+          'We do not own any hotels or lodges. We book the accommodation listed in your itinerary and, if a property is unavailable, we will offer a similar alternative of comparable standard — always with your approval.'
         ]
       },
       {
-        id: 'pricing',
-        title: '4. Pricing',
+        id: 'if-something-goes-wrong',
+        title: '4. If Something Goes Wrong During Your Safari',
         paragraphs: [
-          'Prices are quoted in the currency stated in your proposal. They may change before confirmation due to park fee adjustments, fuel surcharges, exchange rates, or supplier price changes. Confirmed bookings are subject to our [Payment Terms](/payment-terms).'
+          'We do everything we can to give you an enjoyable, trouble-free safari, but occasionally even the best-laid plans can go wrong.',
+          'If a problem arises during your safari, please tell us straight away: contact your tour planning manager by email or WhatsApp, speak to the lodge or camp manager if it relates to your accommodation, and let your driver-guide know. This gives us the chance to put things right on the spot so the issue does not spoil your trip.',
+          'If the matter cannot be resolved immediately, please send the details of your complaint to us in writing within 20 days of returning from your safari.',
+          'It is a condition of this agreement that you report any problem while you are still on safari. If this simple step is not followed, we may be unable to accept responsibility, as we will have been denied the opportunity to investigate and resolve the issue on site.'
         ]
       },
       {
-        id: 'liability',
-        title: '5. Limitation of Liability',
+        id: 'seasonal-factors',
+        title: '5. Seasonal Factors and Resort Facilities',
         paragraphs: [
-          'Safari travel involves inherent risks including wildlife, road conditions, and weather. To the fullest extent permitted by law, our liability is limited to the value of services booked through us, except where liability cannot be excluded by applicable consumer protection law.',
-          'We are not liable for events outside our reasonable control (force majeure), including strikes, pandemics, natural disasters, or government restrictions.'
+          'Some things are outside our control. Early and late in the season, certain tourist facilities may not operate. Likewise, swimming pools sometimes need to be cleaned or emptied, and routine maintenance may affect the availability of certain amenities.'
         ]
       },
       {
-        id: 'conduct',
-        title: '6. Guest Conduct',
+        id: 'public-holidays',
+        title: '6. Public Holidays and Religious Festivals',
         paragraphs: [
-          'Guests must follow guide and park authority instructions, respect wildlife and local communities, and comply with applicable laws. We may terminate services without refund where behaviour endangers others or violates park rules.'
+          'Public holidays and religious festivals throughout the year (particularly Ramadan) may affect the atmosphere of a destination and the availability or reliability of shops, banks, and other facilities.'
         ]
       },
       {
-        id: 'intellectual-property',
-        title: '7. Intellectual Property',
+        id: 'wild-animals',
+        title: '7. Wild Animals',
         paragraphs: [
-          `Website content, logos, and materials are owned by ${company} or licensors. You may not reproduce or distribute content without written permission.`
+          'Please be aware that any African safari may bring you into close contact with wild animals. Attacks are rare, but no safari into the African wilderness can guarantee that such an incident will never occur.',
+          `Neither ${tradingName}, nor its employees, nor its suppliers can be held responsible for any injury or incident on safari. Please note that many safari camps are unfenced and animals may move through the camps at any time of the day or night.`
         ]
       },
       {
-        id: 'governing-law',
-        title: '8. Governing Law and Disputes',
+        id: 'travel-insurance',
+        title: '8. Travel Insurance',
         paragraphs: [
-          'These terms are governed by the laws of Kenya unless mandatory consumer protection laws in your country require otherwise. Disputes should first be raised with us in writing at ' +
-            email +
-            '. We aim to resolve complaints in good faith before alternative dispute resolution or courts.'
+          'It is important that every member of your party has adequate, comprehensive travel insurance covering cancellation and curtailment, as well as medical expenses, emergency travel, personal accident, personal baggage, and loss of money.',
+          `Insurance should be arranged at the time of confirmation and deposit payment so that you are covered for cancellation from the moment you book. Taking out insurance is your responsibility and the cost is for your own account; ${company} cannot be held liable in any way should you fail to do so.`,
+          'If you are travelling to East Africa from overseas, please provide us with your insurer’s name, your policy number, and the insurance company’s emergency contact number in case of any emergency while you are travelling.'
+        ]
+      },
+      {
+        id: 'luggage',
+        title: '9. Luggage',
+        listAfterParagraphIndex: 0,
+        paragraphs: ['Please travel light so there is room for everyone’s luggage:'],
+        listItems: [
+          'Pack as lightly as you comfortably can to leave space for fellow travellers’ bags.',
+          'Group travellers should bring soft suitcases or backpacks where possible.'
+        ]
+      },
+      {
+        id: 'visas-passports',
+        title: '10. Visas and Passports',
+        listAfterParagraphIndex: 0,
+        paragraphs: ['Please make sure your travel documents are in order before you travel:'],
+        listItems: [
+          'Ensure your passport is valid for at least six months from your date of travel.',
+          'Apply for your Kenya Electronic Travel Authorisation (ETA) online in advance.',
+          'Tanzania visas can be applied for online or on arrival; a single-entry visa is recommended for most visitors.'
+        ]
+      },
+      {
+        id: 'photography',
+        title: '11. Photography',
+        paragraphs: [
+          'Photographs our guides take during your safari may be used in our marketing materials without a further request for permission or payment.'
+        ]
+      },
+      {
+        id: 'itinerary-changes',
+        title: '12. Itinerary Changes',
+        paragraphs: [
+          'We may adjust your itinerary where unexpected events make it necessary. If we do, all of the destinations included in your booking will still be covered.'
+        ]
+      },
+      {
+        id: 'guide-changes',
+        title: '13. Guide Changes',
+        paragraphs: [
+          'If your guide is unable to continue, we will assign another qualified guide and let you know. On group safaris, guide arrangements may also change if the size of the group reduces.'
+        ]
+      },
+      {
+        id: 'vehicle-changes',
+        title: '14. Safari Vehicle Changes',
+        paragraphs: [
+          'We may change your safari vehicle for operational reasons. If this happens, we will introduce you to your new guide and explain the reason for the change.'
+        ]
+      },
+      {
+        id: 'cancellation-during-safari',
+        title: '15. Cancellation During the Safari',
+        paragraphs: [
+          'If you cancel after your safari has started, no refund will be given. Where the reason is valid, we will still do our best to help and find a workable solution.'
         ]
       }
     ]
