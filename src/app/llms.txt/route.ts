@@ -1,10 +1,10 @@
-import { SUPPORTED_LOCALES } from '@/lib/i18n';
+import { PUBLIC_LOCALES } from '@/lib/i18n';
 import { PAGE_HERO_REGISTRY } from '@/lib/public/page-heroes';
 import { crawlAbsoluteUrl } from '@/lib/seo/absolute-url';
 
 export async function GET() {
   const sitemapUrl = crawlAbsoluteUrl('/sitemap.xml');
-  const locales = SUPPORTED_LOCALES.join(', ');
+  const locales = PUBLIC_LOCALES.join(', ');
   const staticPages = PAGE_HERO_REGISTRY.map((entry) => crawlAbsoluteUrl(`/en${entry.path}`)).join(
     '\n'
   );

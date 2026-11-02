@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { PublicShell } from '@/components/public/public-shell';
 import { SiteAnalytics } from '@/components/public/site-analytics';
 import { TawkChat } from '@/components/public/tawk-chat';
-import { isSupportedLocale, SUPPORTED_LOCALES } from '@/lib/i18n';
+import { isPublicLocale, PUBLIC_LOCALES } from '@/lib/i18n';
 import { buildTravelAgencyJsonLd } from '@/lib/seo';
 import { getPublicSiteSettings } from '@/lib/public/site-data';
 
@@ -17,12 +17,12 @@ type LocaleLayoutProps = {
 };
 
 export function generateStaticParams() {
-  return SUPPORTED_LOCALES.map((locale) => ({ locale }));
+  return PUBLIC_LOCALES.map((locale) => ({ locale }));
 }
 
 export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {
   const { locale } = await params;
-  if (!isSupportedLocale(locale)) notFound();
+  if (!isPublicLocale(locale)) notFound();
 
   const settings = await getPublicSiteSettings();
 

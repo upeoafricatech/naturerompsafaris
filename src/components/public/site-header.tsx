@@ -11,7 +11,7 @@ import { BRAND_LOGO_PATH, BRAND_PHONE, BRAND_WHATSAPP } from '@/config/brand';
 import { whatsAppHref } from '@/lib/public/whatsapp';
 import { localePath, stripLocalePrefix } from '@/lib/public/locale-path';
 import { phoneHref, publicCallPhones } from '@/lib/public/phones';
-import { SUPPORTED_LOCALES } from '@/lib/i18n';
+import { PUBLIC_LOCALES } from '@/lib/i18n';
 import type { PublicNavItem, PublicSiteSettings } from '@/lib/public/types';
 import { cn } from '@/lib/utils';
 
@@ -468,6 +468,8 @@ function LanguageSelector({
   pathname: string;
   variant?: 'topbar' | 'sheet';
 }) {
+  if (PUBLIC_LOCALES.length < 2) return null;
+
   const basePath = stripLocalePrefix(pathname, locale);
 
   if (variant === 'sheet') {
@@ -475,7 +477,7 @@ function LanguageSelector({
       <nav aria-label='Language' className='nr-lang-sheet'>
         <p className='nr-lang-sheet__label'>Language</p>
         <ul>
-          {SUPPORTED_LOCALES.map((code) => (
+          {PUBLIC_LOCALES.map((code) => (
             <li key={code}>
               <Link
                 className={cn(code === locale && 'is-active')}
@@ -497,7 +499,7 @@ function LanguageSelector({
         <span>{locale}</span>
       </summary>
       <ul>
-        {SUPPORTED_LOCALES.map((code) => (
+        {PUBLIC_LOCALES.map((code) => (
           <li key={code}>
             <Link className={cn(code === locale && 'is-active')} href={localePath(code, basePath)}>
               {code}

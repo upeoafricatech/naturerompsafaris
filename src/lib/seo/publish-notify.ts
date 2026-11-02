@@ -1,8 +1,9 @@
 import { revalidatePath } from 'next/cache';
 
-import { SUPPORTED_LOCALES } from '@/lib/i18n';
+import { isPublicLocale, SUPPORTED_LOCALES } from '@/lib/i18n';
 
 import { notifySearchEnginesLater } from './indexing';
+import { sitemapFilePath } from './sitemap-data';
 
 const LISTING_SEGMENTS_BY_PREFIX: Record<string, string[]> = {
   accommodations: ['', 'accommodations'],
@@ -29,8 +30,13 @@ function defaultListingPaths(pathPrefix: string, locales: string[]) {
   );
 }
 
+function isPublicLocalePath(path: string) {
+  return isPublicLocale(path.split('/').filter(Boolean)[0]);
+}
+
 /**
  * Revalidate + instant-index a published CMS entity across locales.
+ * Only public-locale URLs are submitted to search engines; other locales 404.
  */
 export function notifyPublishedContent({
   listingPaths,
@@ -45,6 +51,8 @@ export function notifyPublishedContent({
     revalidatePath(path);
   }
   revalidatePath('/sitemap.xml');
+  revalidatePath(sitemapFilePath('pages'));
+  revalidatePath(sitemapFilePath(pathPrefix));
 
-  notifySearchEnginesLater(paths);
+  notifySearchEnginesLater(paths.filter(isPublicLocalePath));
 }

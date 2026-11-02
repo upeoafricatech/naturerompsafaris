@@ -1,13 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { SUPPORTED_LOCALES } from '@/lib/i18n';
+import { isPublicLocale, PUBLIC_LOCALES } from '@/lib/i18n';
 import { createEnquiryPublicClient } from '@/lib/supabase/service-role';
 
 export type SitemapUrlEntry = {
-  changeFrequency?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
   lastModified?: Date;
   path: string;
-  priority?: number;
+};
+
+export type SitemapFileEntry = {
+  lastModified?: Date;
+  name: string;
 };
 
 type TranslationRow = {
@@ -17,28 +20,40 @@ type TranslationRow = {
   updated_at: string | null;
 };
 
-const STATIC_PATHS: Array<{
-  changeFrequency: SitemapUrlEntry['changeFrequency'];
-  path: string;
-  priority: number;
-}> = [
-  { path: '', priority: 1, changeFrequency: 'daily' },
-  { path: 'about', priority: 0.8, changeFrequency: 'monthly' },
-  { path: 'contact', priority: 0.7, changeFrequency: 'monthly' },
-  { path: 'destinations', priority: 0.9, changeFrequency: 'weekly' },
-  { path: 'tours', priority: 0.9, changeFrequency: 'weekly' },
-  { path: 'experiences', priority: 0.85, changeFrequency: 'weekly' },
-  { path: 'accommodations', priority: 0.85, changeFrequency: 'weekly' },
-  { path: 'national-parks', priority: 0.85, changeFrequency: 'weekly' },
-  { path: 'blog', priority: 0.85, changeFrequency: 'daily' },
-  { path: 'our-fleet', priority: 0.75, changeFrequency: 'monthly' },
-  { path: 'safari-packages', priority: 0.8, changeFrequency: 'weekly' },
-  { path: 'privacy-policy', priority: 0.2, changeFrequency: 'yearly' },
-  { path: 'cookie-policy', priority: 0.2, changeFrequency: 'yearly' },
-  { path: 'terms-conditions', priority: 0.2, changeFrequency: 'yearly' },
-  { path: 'payment-terms', priority: 0.2, changeFrequency: 'yearly' },
-  { path: 'service-level-agreement', priority: 0.2, changeFrequency: 'yearly' }
+/** Content sections; each name is both the public URL prefix and the sitemap file name. */
+export const SITEMAP_SECTIONS = [
+  'tours',
+  'safari-packages',
+  'destinations',
+  'national-parks',
+  'experiences',
+  'accommodations',
+  'our-fleet',
+  'blog'
+] as const;
+
+export type SitemapSection = (typeof SITEMAP_SECTIONS)[number];
+
+export const PAGES_SITEMAP = 'pages';
+
+const ALWAYS_LISTED_PATHS = [
+  '',
+  'about',
+  'contact',
+  'privacy-policy',
+  'cookie-policy',
+  'terms-conditions',
+  'payment-terms',
+  'service-level-agreement'
 ];
+
+export function sitemapFilePath(name: string) {
+  return `/sitemaps/${name}.xml`;
+}
+
+export function isSitemapSection(name: string): name is SitemapSection {
+  return (SITEMAP_SECTIONS as readonly string[]).includes(name);
+}
 
 function sitemapClient() {
   return createEnquiryPublicClient() as unknown as SupabaseClient;
@@ -48,30 +63,6 @@ function parseDate(value: string | null | undefined): Date | undefined {
   if (!value) return undefined;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-function staticUrls(): SitemapUrlEntry[] {
-  return SUPPORTED_LOCALES.flatMap((locale) =>
-    STATIC_PATHS.map((entry) => ({
-      changeFrequency: entry.changeFrequency,
-      path: entry.path ? `/${locale}/${entry.path}` : `/${locale}`,
-      priority: entry.priority
-    }))
-  );
-}
-
-function mapTranslationRows(rows: TranslationRow[], pathPrefix: string): SitemapUrlEntry[] {
-  return rows.flatMap((row) => {
-    if (!SUPPORTED_LOCALES.includes(row.locale) || !row.slug) return [];
-    return [
-      {
-        changeFrequency: 'weekly' as const,
-        lastModified: parseDate(row.updated_at) ?? parseDate(row.published_at),
-        path: `/${row.locale}/${pathPrefix}/${row.slug}`,
-        priority: 0.7
-      }
-    ];
-  });
 }
 
 function mapRows(data: unknown): TranslationRow[] {
@@ -99,128 +90,143 @@ async function safeRows(
   }
 }
 
-async function fetchTourTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('tour_translations')
-      .select('locale, slug, published_at, updated_at, tour:tours!inner(status)')
-      .not('published_at', 'is', null)
-      .eq('tour.status', 'published')
-  );
+function translationQuery(table: string, parentSelect: string) {
+  return sitemapClient()
+    .from(table)
+    .select(`locale, slug, published_at, updated_at, ${parentSelect}`)
+    .in('locale', PUBLIC_LOCALES)
+    .not('published_at', 'is', null);
 }
 
-async function fetchPackageTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('package_translations')
-      .select('locale, slug, published_at, updated_at, package:packages!inner(status)')
-      .not('published_at', 'is', null)
-      .eq('package.status', 'published')
-  );
-}
-
-async function fetchDestinationTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('destination_translations')
-      .select(
-        'locale, slug, published_at, updated_at, destination:destinations!inner(status, deleted_at)'
+const SECTION_FETCHERS: Record<SitemapSection, () => Promise<TranslationRow[]>> = {
+  tours: () =>
+    safeRows(
+      translationQuery('tour_translations', 'tour:tours!inner(status)').eq(
+        'tour.status',
+        'published'
       )
-      .not('published_at', 'is', null)
-      .eq('destination.status', 'published')
-      .is('destination.deleted_at', null)
-  );
-}
-
-async function fetchBlogTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('blog_translations')
-      .select('locale, slug, published_at, updated_at, post:blog_posts!inner(status, deleted_at)')
-      .not('published_at', 'is', null)
-      .eq('post.status', 'published')
-      .is('post.deleted_at', null)
-  );
-}
-
-async function fetchExperienceTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('experience_translations')
-      .select(
-        'locale, slug, published_at, updated_at, experience:experiences!inner(status, deleted_at)'
+    ),
+  'safari-packages': () =>
+    safeRows(
+      translationQuery('package_translations', 'package:packages!inner(status)').eq(
+        'package.status',
+        'published'
       )
-      .not('published_at', 'is', null)
-      .eq('experience.status', 'published')
-      .is('experience.deleted_at', null)
-  );
-}
-
-async function fetchAccommodationTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('accommodation_translations')
-      .select(
-        'locale, slug, published_at, updated_at, accommodation:accommodations!inner(status, deleted_at)'
+    ),
+  destinations: () =>
+    safeRows(
+      translationQuery(
+        'destination_translations',
+        'destination:destinations!inner(status, deleted_at)'
       )
-      .not('published_at', 'is', null)
-      .eq('accommodation.status', 'published')
-      .is('accommodation.deleted_at', null)
+        .eq('destination.status', 'published')
+        .is('destination.deleted_at', null)
+    ),
+  'national-parks': () =>
+    safeRows(
+      translationQuery('national_park_translations', 'park:national_parks!inner(status)').eq(
+        'park.status',
+        'published'
+      )
+    ),
+  experiences: () =>
+    safeRows(
+      translationQuery(
+        'experience_translations',
+        'experience:experiences!inner(status, deleted_at)'
+      )
+        .eq('experience.status', 'published')
+        .is('experience.deleted_at', null)
+    ),
+  accommodations: () =>
+    safeRows(
+      translationQuery(
+        'accommodation_translations',
+        'accommodation:accommodations!inner(status, deleted_at)'
+      )
+        .eq('accommodation.status', 'published')
+        .is('accommodation.deleted_at', null)
+    ),
+  'our-fleet': () =>
+    safeRows(
+      translationQuery('fleet_vehicle_translations', 'vehicle:fleet_vehicles!inner(status)').eq(
+        'vehicle.status',
+        'published'
+      )
+    ),
+  blog: () =>
+    safeRows(
+      translationQuery('blog_translations', 'post:blog_posts!inner(status, deleted_at)')
+        .eq('post.status', 'published')
+        .is('post.deleted_at', null)
+    )
+};
+
+function rowsToEntries(rows: TranslationRow[], section: SitemapSection): SitemapUrlEntry[] {
+  const seen = new Set<string>();
+  return rows.flatMap((row) => {
+    if (!isPublicLocale(row.locale) || !row.slug) return [];
+    const path = `/${row.locale}/${section}/${row.slug}`;
+    if (seen.has(path)) return [];
+    seen.add(path);
+    return [{ lastModified: parseDate(row.updated_at) ?? parseDate(row.published_at), path }];
+  });
+}
+
+function latest(entries: SitemapUrlEntry[]) {
+  let result: Date | undefined;
+  for (const entry of entries) {
+    if (entry.lastModified && (!result || entry.lastModified > result)) {
+      result = entry.lastModified;
+    }
+  }
+  return result;
+}
+
+export async function getSectionSitemapUrls(section: SitemapSection) {
+  return rowsToEntries(await SECTION_FETCHERS[section](), section);
+}
+
+async function getAllSectionUrls() {
+  const results = await Promise.all(
+    SITEMAP_SECTIONS.map(
+      async (section) => [section, await getSectionSitemapUrls(section)] as const
+    )
+  );
+  return new Map<SitemapSection, SitemapUrlEntry[]>(results);
+}
+
+function staticPageUrls(sections: Map<SitemapSection, SitemapUrlEntry[]>): SitemapUrlEntry[] {
+  // A listing page with no published items is a thin page; leave it out until it has content.
+  const listingPaths = SITEMAP_SECTIONS.filter((section) => sections.get(section)?.length);
+  const paths = [...ALWAYS_LISTED_PATHS, ...listingPaths];
+
+  return PUBLIC_LOCALES.flatMap((locale) =>
+    paths.map((path) => {
+      const sectionEntries = isSitemapSection(path) ? sections.get(path) : undefined;
+      return {
+        lastModified: sectionEntries ? latest(sectionEntries) : undefined,
+        path: path ? `/${locale}/${path}` : `/${locale}`
+      };
+    })
   );
 }
 
-async function fetchNationalParkTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('national_park_translations')
-      .select('locale, slug, published_at, updated_at, park:national_parks!inner(status)')
-      .not('published_at', 'is', null)
-      .eq('park.status', 'published')
-  );
+export async function getPagesSitemapUrls() {
+  return staticPageUrls(await getAllSectionUrls());
 }
 
-async function fetchFleetTranslations() {
-  return safeRows(
-    sitemapClient()
-      .from('fleet_vehicle_translations')
-      .select('locale, slug, published_at, updated_at, vehicle:fleet_vehicles!inner(status)')
-      .not('published_at', 'is', null)
-      .eq('vehicle.status', 'published')
-  );
-}
-
-export async function getAllSitemapUrls(): Promise<SitemapUrlEntry[]> {
-  const [tours, packages, destinations, blog, experiences, accommodations, parks, fleet] =
-    await Promise.all([
-      fetchTourTranslations(),
-      fetchPackageTranslations(),
-      fetchDestinationTranslations(),
-      fetchBlogTranslations(),
-      fetchExperienceTranslations(),
-      fetchAccommodationTranslations(),
-      fetchNationalParkTranslations(),
-      fetchFleetTranslations()
-    ]);
-
-  const dynamicUrls = [
-    ...mapTranslationRows(tours, 'tours'),
-    ...mapTranslationRows(packages, 'safari-packages'),
-    ...mapTranslationRows(destinations, 'destinations'),
-    ...mapTranslationRows(blog, 'blog'),
-    ...mapTranslationRows(experiences, 'experiences'),
-    ...mapTranslationRows(accommodations, 'accommodations'),
-    ...mapTranslationRows(parks, 'national-parks'),
-    ...mapTranslationRows(fleet, 'our-fleet')
+/** Sitemap files for the index: pages first, then only sections with published URLs. */
+export async function getSitemapFiles(): Promise<SitemapFileEntry[]> {
+  const sections = await getAllSectionUrls();
+  const files: SitemapFileEntry[] = [
+    { lastModified: latest([...sections.values()].flat()), name: PAGES_SITEMAP }
   ];
 
-  const seen = new Set<string>();
-  const urls: SitemapUrlEntry[] = [];
-
-  for (const entry of [...staticUrls(), ...dynamicUrls]) {
-    if (seen.has(entry.path)) continue;
-    seen.add(entry.path);
-    urls.push(entry);
+  for (const section of SITEMAP_SECTIONS) {
+    const entries = sections.get(section) ?? [];
+    if (entries.length) files.push({ lastModified: latest(entries), name: section });
   }
 
-  return urls;
+  return files;
 }

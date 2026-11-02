@@ -16,6 +16,8 @@ function withPublicCanonicalHost(raw: string) {
 }
 
 export function absoluteUrl(path = '/') {
+  if (/^https?:\/\//i.test(path)) return withPublicCanonicalHost(path);
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_PUBLIC_SITE_URL;
   const normalizedSiteUrl = siteUrl.replace(/\/$/, '');
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

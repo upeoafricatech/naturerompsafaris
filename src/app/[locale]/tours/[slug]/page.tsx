@@ -37,10 +37,10 @@ export async function generateMetadata(props: TourPageProps): Promise<Metadata> 
     .not('published_at', 'is', null)
     .maybeSingle();
 
-  if (!tour) return {};
+  if (!tour) notFound();
 
   const parent = Array.isArray(tour.tour) ? tour.tour[0] : tour.tour;
-  if (!parent?.id) return {};
+  if (!parent?.id) notFound();
 
   const title = tour.seo_title || `${tour.title} | Safari Tour`;
   const description = tour.seo_description || tour.excerpt;

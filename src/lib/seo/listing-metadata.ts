@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 
-import { SUPPORTED_LOCALES } from '@/lib/i18n';
 import type { PageHeroKey } from '@/lib/public/page-heroes';
 import { getPageHero } from '@/lib/public/site-data';
-import { absoluteUrl, buildMetadata } from '@/lib/seo';
+import { buildMetadata, buildStaticLanguageAlternates } from '@/lib/seo';
 
 type ListingMetadataInput = {
   canonicalPath: string;
@@ -33,11 +32,11 @@ export async function buildListingPageMetadata({
   const pageHero = heroKey ? await getPageHero(heroKey) : null;
   const title = pageHero?.heading ?? defaultTitle;
   const description = pageHero?.subheading ?? defaultDescription;
-  const languages = Object.fromEntries(
-    SUPPORTED_LOCALES.map((supportedLocale) => [
-      supportedLocale,
-      absoluteUrl(canonicalPath.replace(`/${locale}`, `/${supportedLocale}`))
-    ])
+  const localePrefix = `/${locale}`;
+  const hasLocalePrefix =
+    canonicalPath === localePrefix || canonicalPath.startsWith(`${localePrefix}/`);
+  const languages = buildStaticLanguageAlternates(
+    hasLocalePrefix ? canonicalPath.slice(localePrefix.length) : canonicalPath
   );
 
   return buildMetadata({

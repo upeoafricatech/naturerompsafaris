@@ -44,12 +44,12 @@ export async function generateMetadata(props: SafariPackageDetailPageProps): Pro
     .not('published_at', 'is', null)
     .maybeSingle();
 
-  if (!safariPackage) return {};
+  if (!safariPackage) notFound();
 
   const parent = Array.isArray(safariPackage.package)
     ? safariPackage.package[0]
     : safariPackage.package;
-  if (!parent?.id) return {};
+  if (!parent?.id) notFound();
 
   const title = safariPackage.seo_title || `${safariPackage.title} | Safari Package`;
   const description = safariPackage.seo_description || safariPackage.excerpt;
