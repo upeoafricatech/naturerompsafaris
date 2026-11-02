@@ -107,7 +107,7 @@ const safariQuoteSchema = z.object({
   infants: z.number().int().min(0),
   message: z.string().optional(),
   name: z.string().min(2, 'Name is required'),
-  phone: z.string().min(6, 'Phone number is required'),
+  phone: z.string().optional(),
   referralSource: z.string().optional(),
   travelEndDate: z.string().min(1, 'Select an end date'),
   travelPlanningStage: z.string().min(1, 'Select your travel planning stage'),
@@ -130,6 +130,14 @@ const otherSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   phone: z.string().optional()
 });
+
+/** Phone is optional; a value that is only the auto-filled dial code counts as empty. */
+function submittedPhone(phone?: string, country?: string) {
+  const trimmed = phone?.trim();
+  if (!trimmed) return undefined;
+  const dialCode = country ? getCountryDialCode(country).trim() : '';
+  return dialCode && trimmed === dialCode ? undefined : trimmed;
+}
 
 const fieldClassName = 'brand-contact-field mt-1.5';
 
@@ -415,7 +423,7 @@ function ContactFormBody({
         locale,
         message: value.message || undefined,
         name: value.name,
-        phone: value.phone || undefined,
+        phone: submittedPhone(value.phone, value.country),
         preferredDates,
         referralSource:
           activeType === 'safari-quote' ? value.referralSource || undefined : undefined,
@@ -514,7 +522,6 @@ function ContactFormBody({
                               onBlur={field.handleBlur}
                               onChange={(event) => field.handleChange(event.target.value)}
                               placeholder={country ? '712 345 678' : 'Select nationality first'}
-                              required
                               type='tel'
                               value={field.state.value}
                             />
